@@ -1,5 +1,8 @@
 module.exports = {
-  allowExecution: false
+  execution: {
+    allowed: true,
+    reason: "rule_passed",
+    scope: ["demo"],
+    constraints: []
+  }
 };
-
-

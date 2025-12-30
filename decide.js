@@ -1,18 +1,24 @@
 const rules = require("./rules");
 
 function decide() {
-  if (rules.allowExecution === true) {
+  const policy = rules.execution;
+
+  if (!policy.allowed) {
     return {
-      action: "allowed",
-      reason: "rule_passed"
+      action: "refused",
+      reason: policy.reason || "rule_violation",
+      scope: policy.scope || [],
+      constraints: policy.constraints || []
     };
   }
 
   return {
-    action: "refused",
-    reason: "rule_violation"
+    action: "allowed",
+    reason: policy.reason || "rule_passed",
+    scope: policy.scope || [],
+    constraints: policy.constraints || []
   };
 }
 
-module.exports = decide;
+module.exports = { decide };
 

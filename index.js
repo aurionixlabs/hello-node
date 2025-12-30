@@ -1,7 +1,12 @@
-const decide = require("./decide");
+const { decide } = require("./decide");
 
-const result = decide();
+const decision = decide();
 
-console.log("ACTION:", result.action);
-console.log("REASON:", result.reason);
+console.log("ACTION:", decision.action);
+console.log("REASON:", decision.reason);
+
+if (decision.action !== "allowed") {
+  process.exit(1);
+}
+
 console.log("Node is working");
