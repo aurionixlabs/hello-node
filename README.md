@@ -1,26 +1,40 @@
-# hello-node — rule-gated execution proof
+# Non-Bypassable Decision Gate with Verifiable Enforcement
 
-This repo proves a minimal enforcement pattern:
+This repository demonstrates a deterministic decision-gate system 
+that **physically prevents side-effects unless explicitly 
+authorized**, and produces **verifiable outcomes at execution time**.
 
-- `rules.js` = external policy
-- `decide.js` = reads policy and returns a decision
-- `index.js` = obeys the decision (runs or refuses)
+This is not advisory policy.
+This is enforced reality.
 
-## How to run
+---
+
+## Problem
+
+Most AI and automation “safety layers” are advisory:
+
+- Tools can still execute
+- Logs can be altered
+- Decisions cannot be proven after the fact
+
+In these systems, refusal is a suggestion — not a guarantee.
+
+---
+
+## What This System Guarantees
+
+If the decision gate does **not** allow an action, the side-effect 
+**cannot happen**.
+
+This guarantee is enforced at execution time, not via prompts, logs, 
+or post-hoc analysis.
+
+---
+
+## 1. Decision Gate + Enforcement
+
+Run the demo:
+
 ```bash
-node index.js
-## Proof
-
-1) Set `allowed: false` in `rules.js` then run:
-   `node index.js`
-
-   Expected: `ACTION: refused`
-
-2) Set `allowed: true` in `rules.js` then run:
-   `node index.js`
-
-   Expected: `ACTION: allowed`
-
-Only `rules.js` changes. Behavior flips.  
-This demonstrates external policy–gated execution.
+node decide.js
 
