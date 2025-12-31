@@ -1,44 +1,46 @@
-/**
- * toolRunner.js
- * Guarded tool runner: executes side-effects only if the decision gate ALLOWs.
- * CommonJS (require/module.exports).
- */
-
 const fs = require("fs");
+const path = require("path");
 
-// Minimal gate: blocks writes unless confirmed and domain is not "fraud".
-function decide(req) {
-  // hard refuse fraud domain
-  if (req.domain === "fraud") {
-    return { decision: "REFUSE", reason: "fraud domain refused" };
-  }
+const { decide } = require("./decide.cjs");
+const { issueReceipt } = require("./receipt.cjs");
 
-  // require confirmation for writes (this is your "partial enforcement" demo)
-  if (req.action === "write" && req.confirmed !== true) {
-    return { decision: "DOWNGRADE", reason: "write requires confirmed=true" };
-  }
-
-  return { decision: "ALLOW", reason: "allowed" };
+// --- tool implementation ---
+function fsWrite({ path: targetPath, data }) {
+  fs.writeFileSync(targetPath, data, "utf8");
+  return { ok: true };
 }
 
+// --- guarded tool runner ---
 function runTool(req) {
+  // 1) Decision gate runs FIRST
   const gate = decide(req);
 
-  // Show gate result (so the demo reads like a proof)
+  // 2) Issue receipt for every attempt (ALLOW / REFUSE / DOWNGRADE)
+  const receipt = issueReceipt(req, gate);
+
   console.log("gate:", gate.decision, "-", gate.reason);
+  console.log("receipt:", receipt.receipt_hash);
 
-  // Enforced reality: no ALLOW => no side-effect
-  if (gate.decision !== "ALLOW") return { ok: false, gate };
-
-  // Tool execution (side-effect)
-  if (req.toolName === "fsWrite" && req.action === "write") {
-    const { path, data } = req.payload || {};
-    if (!path) throw new Error("fsWrite missing payload.path");
-    fs.writeFileSync(path, String(data ?? ""));
-    return { ok: true, gate };
+  // 3) Enforce decision
+  if (gate.decision === "REFUSE") {
+    return { ok: false, gate };
   }
 
-  throw new Error(`Unknown tool/action: ${req.toolName}/${req.action}`);
+  if (gate.decision === "DOWNGRADE") {
+    return { ok: false, gate };
+  }
+
+  if (gate.decision !== "ALLOW") {
+    return { ok: false, gate };
+  }
+
+  // 4) Side-effects ONLY happen here
+  if (req.toolName === "fsWrite" && req.action === "write") {
+    return fsWrite(req.payload);
+  }
+
+  throw new Error(`Unknown tool: ${req.toolName}`);
 }
 
 module.exports = { runTool };
+
