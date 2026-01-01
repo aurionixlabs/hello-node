@@ -5,8 +5,9 @@
  *
  * Updated for Stage 6+ semantics:
  * - Degraded actions return { needsConfirmation, confirmToken } (no execution)
- * - Replay same call with confirmToken executes
- * - Unauthorized tools still hard-refuse (throw)
+ * - Replay SAME call with confirmToken executes
+ * - If you change the call, you need a NEW token
+ * - Unauthorized tools hard-refuse (throw)
  */
 
 const { decide } = require("./decide");
@@ -33,14 +34,33 @@ async function main() {
 
   console.log("TEST 1 blocked as expected (needs confirmation). token:", res1.confirmToken);
 
-  // TEST 1b: replay with confirmToken should execute
+  // TEST 1b: replay SAME call + confirmToken should execute
   const res1b = await runToolWithGate({
-    ...toolCall1,
-    args: { path: "tmp/demo1.txt", content: "now_written\n" },
+    ...toolCall1,            // SAME tool/action/args
     confirmToken: res1.confirmToken,
   });
 
   console.log("TEST 1b executed as expected:", res1b);
+
+  // TEST 1c: change content => NEW token required
+  const toolCall1c = {
+    ...toolCall1,
+    args: { path: "tmp/demo1.txt", content: "now_written\n" }, // changed args => new scope
+  };
+
+  const res1c = await runToolWithGate(toolCall1c);
+  if (!res1c || !res1c.needsConfirmation || !res1c.confirmToken) {
+    console.log("TEST 1c FAIL: expected new needsConfirmation + confirmToken, got:", res1c);
+    process.exit(1);
+  }
+  console.log("TEST 1c blocked as expected (new token required). token:", res1c.confirmToken);
+
+  const res1cExec = await runToolWithGate({
+    ...toolCall1c,           // SAME as toolCall1c
+    confirmToken: res1c.confirmToken,
+  });
+
+  console.log("TEST 1c executed as expected:", res1cExec);
 
   // TEST 2: allowed executes
   const toolCall2 = {
