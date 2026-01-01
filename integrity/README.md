@@ -1,54 +1,47 @@
 # Integrity workflow (Stage 9 / 9B)
 
-This repo uses a startup integrity gate:
-- `toolRunner.cjs` verifies core module hashes against `integrity/manifest.json`
-- If Stage 9B is enabled, it also verifies a signature over the manifest
+This repo uses a startup integrity gate.
 
-## When you change ANY core enforcement file
+- Stage 9: `toolRunner.cjs` verifies core module hashes against `integrity/manifest.json`.
+- Stage 9B (optional): it also verifies a signature over the manifest.
 
-Core files include (see `integrity/gen-manifest.cjs` TARGETS):
+If integrity fails, the runner must fail closed (no tool execution).
+
+## What counts as a “core” file?
+
+Core files are exactly the ones listed in `integrity/gen-manifest.cjs` (`TARGETS`), typically:
 - toolRunner.cjs
 - internal/tools.cjs
 - decide.js
 - rules.js
 - receipt.cjs
 - confirm.cjs
-(and anything else added to TARGETS)
 
-You MUST regenerate and re-sign the manifest, or the system will fail closed.
+If you change any of these, you MUST update integrity artifacts.
 
-## Update steps (required)
+## Required update workflow (every time core files change)
 
 1) Regenerate hashes:
-```bash
-node integrity/gen-manifest.cjs
+   node integrity/gen-manifest.cjs
 
-minisign -S -m integrity/manifest.json -s integrity/keys/minisign.key -x integrity/manifest.sig
+2) If using signed mode (Stage 9B), re-sign:
+   minisign -S -m integrity/manifest.json -s integrity/keys/minisign.key -x integrity/manifest.sig
 
-node integrity/verify-signed.cjs
-# or if unsigned mode:
-node integrity/verify.cjs
+3) Verify integrity locally:
+   # signed mode
+   node integrity/verify-signed.cjs
+   # unsigned mode
+   node integrity/verify.cjs
 
-node demo-filesystem.cjs
-node demo-agent.cjs
-node demo-confirm.cjs
-node demo-bypass.cjs
-node demo-cap-leak.cjs
-node verify-receipts.cjs
+4) Run demo suite:
+   node demo-filesystem.cjs
+   node demo-agent.cjs
+   node demo-confirm.cjs
+   node demo-bypass.cjs
+   node demo-cap-leak.cjs
+   node verify-receipts.cjs
 
-
-## 2) Add a root `RELEASE.md` (short + impossible to miss)
-
-```bash
-cat > RELEASE.md <<'EOF'
-# Release checklist (demo repo)
-
-## If you changed enforcement code (gate/tools/receipts/confirm/rules)
-You MUST update integrity artifacts or startup will fail closed.
-
-Run:
-1) node integrity/gen-manifest.cjs
-2) minisign -S -m integrity/manifest.json -s integrity/keys/minisign.key -x integrity/manifest.sig
-3) node integrity/verify-signed.cjs
-4) node demo-filesystem.cjs && node demo-agent.cjs && node demo-confirm.cjs && node demo-bypass.cjs && node demo-cap-leak.cjs
-5) node verify-receipts.cjs
+5) Commit the updated artifacts:
+   integrity/manifest.json
+   integrity/manifest.sig (if signed mode)
+   plus the changed core files
