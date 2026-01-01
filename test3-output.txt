@@ -1,0 +1,28 @@
+
+TEST 1 decision: {
+  action: 'degraded',
+  reason: 'confirmation_required',
+  scope: [ 'action' ],
+  constraints: [ { type: 'allowed_tools', tools: [Array] } ]
+}
+TEST 1 blocked as expected: Error: Blocked by gate: degraded (confirmation_required)
+
+TEST 2 decision: {
+  action: 'allowed',
+  reason: 'rule_passed',
+  scope: [],
+  constraints: []
+}
+TEST 2 success: {
+  ok: true,
+  wrote: '/Users/chris/projects/hello-node/tmp/demo2.txt',
+  bytes: 15
+}
+
+TEST 3 decision: {
+  action: 'allowed',
+  reason: 'rule_passed',
+  scope: [],
+  constraints: []
+}
+TEST 3 blocked as expected: ReferenceError: runToolWithGate is not defined

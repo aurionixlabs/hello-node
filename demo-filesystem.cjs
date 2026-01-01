@@ -47,4 +47,31 @@ async function testConfirmedWrite() {
   } catch (e) {
     console.log("TEST 2 unexpected block:", String(e));
   }
+// ==========================
+// TEST 3 — unauthorized tool should be blocked
+// ==========================
+try {
+  const toolCall3 = {
+    tool: "shell", // <-- unauthorized on purpose
+    args: { cmd: "echo HACKED" },
+  };
+
+  // Policy: only filesystem is allowed
+  const policy3 = {
+    allowed: true,
+    constraints: [
+      { type: "allowed_tools", tools: ["filesystem"] },
+    ],
+  };
+
+  const decision3 = decide(toolCall3, policy3);
+  console.log("\nTEST 3 decision:", decision3);
+
+  // If your gate/tool runner is wired correctly, it should throw or block here
+  const result3 = await runToolWithGate(toolCall3, policy3); // adjust name if your runner function differs
+  console.log("TEST 3 UNEXPECTED SUCCESS:", result3);
+  process.exit(1);
+} catch (e) {
+  console.log("TEST 3 blocked as expected:", String(e));
+}
 })();
