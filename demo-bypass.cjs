@@ -7,7 +7,7 @@
  * Since tools require the secret CAP (not exported), direct calls must fail.
  */
 
-const { buildTools } = require("./tools.cjs");
+const { buildTools } = require("./internal/tools.cjs");
 const { runToolWithGate } = require("./toolRunner.cjs");
 
 async function main() {

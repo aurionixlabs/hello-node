@@ -12,13 +12,13 @@
 const { decide } = require("./decide");
 const { writeReceipt } = require("./receipt.cjs");
 const { issueConfirmation, consumeConfirmation } = require("./confirm.cjs");
-const { buildTools } = require("./tools.cjs");
+const { buildTools } = require("./internal/tools.cjs");
 
 // Secret capability (not exported)
 const CAP = Object.freeze({ __cap: "toolrunner_internal_capability" });
 
 // Tool registry built with CAP requirement
-const TOOL_REGISTRY = buildTools(CAP);
+const TOOL_REGISTRY = Object.freeze(buildTools(CAP));
 
 function confirmationScopeKey(toolCall) {
   const tool = toolCall?.tool || "null";
