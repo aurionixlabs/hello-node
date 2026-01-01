@@ -1,83 +1,83 @@
 "use strict";
 
-const fs = require("fs");
+/**
+ * Stage 5: Single syscall layer.
+ * Every tool execution must route through this module.
+ */
+
 const path = require("path");
+const fsp = require("fs/promises");
 
-/**
- * Tool registry
- */
-class ToolRegistry {
-  constructor() {
-    this.tools = new Map();
-  }
+const { decide } = require("./decide");
+const { writeReceipt } = require("./receipt.cjs");
 
-  register(def) {
-    if (!def || typeof def.name !== "string" || def.name.trim() === "") {
-      throw new Error("ToolRegistry.register: name must be a non-empty string");
+const TOOL_REGISTRY = {
+  "filesystem.writeFile": async ({ path: relPath, content }) => {
+    const abs = path.resolve(process.cwd(), relPath);
+
+    const tmpRoot = path.resolve(process.cwd(), "tmp") + path.sep;
+    if (!abs.startsWith(tmpRoot)) {
+      throw new Error("filesystem.writeFile: path must be under ./tmp");
     }
-    if (typeof def.fn !== "function") {
-      throw new Error("ToolRegistry.register: fn must be a function");
-    }
-    if (this.tools.has(def.name)) {
-      throw new Error("ToolRegistry.register: duplicate tool name: " + def.name);
-    }
-    this.tools.set(def.name, def.fn);
-  }
 
-  get(name) {
-    return this.tools.get(name);
-  }
-}
+    await fsp.mkdir(path.dirname(abs), { recursive: true });
+    await fsp.writeFile(abs, String(content ?? ""), "utf8");
 
-const registry = new ToolRegistry();
-
-/**
- * Example filesystem tool (safe demo)
- */
-registry.register({
-  name: "filesystem.writeFile",
-  fn: ({ path: target, content }) => {
-    const full = path.resolve(target);
-    fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, String(content ?? ""), "utf8");
-    return {
-      ok: true,
-      wrote: full,
-      bytes: Buffer.byteLength(String(content ?? ""), "utf8"),
-    };
+    return { ok: true, wrote: abs, bytes: Buffer.byteLength(String(content ?? ""), "utf8") };
   },
-});
 
-/**
- * Hardened gate-enforced runner
- */
-function runTool(call, decision) {
-  if (!decision || typeof decision.action !== "string") {
-    throw new Error("runTool: missing decision");
-  }
+  // Deliberately dangerous; should be blocked by rules.allowedTools
+  "filesystem.deleteFile": async ({ path: relPath }) => {
+    const abs = path.resolve(process.cwd(), relPath);
+    await fsp.unlink(abs);
+    return { ok: true, deleted: abs };
+  },
+};
 
-  if (decision.action !== "allowed") {
+async function runToolWithGate(toolCall) {
+  const decision = decide(toolCall);
+
+  // Fail-closed: block unless explicitly allowed
+  if (!decision || decision.action !== "allowed") {
+    writeReceipt({
+      policyVersion: "v1",
+      decision: decision?.action || "refused",
+      reason: decision?.reason || "missing_decision",
+      tool: toolCall?.tool || null,
+      args: toolCall?.args ?? null,
+      outcome: "blocked",
+    });
+
     throw new Error(
       "Blocked by gate: " +
-        decision.action +
-        (decision.reason ? " (" + decision.reason + ")" : "")
+        (decision?.action || "refused") +
+        " (" +
+        (decision?.reason || "missing_reason") +
+        ")"
     );
   }
 
-  if (!call || typeof call.tool !== "string") {
-    throw new Error("runTool: invalid tool call");
+  // Validate tool call
+  if (!toolCall || typeof toolCall !== "object") throw new Error("runToolWithGate: invalid tool call");
+  if (!toolCall.tool || typeof toolCall.tool !== "string") throw new Error("runToolWithGate: missing tool name");
+  if (!Object.prototype.hasOwnProperty.call(TOOL_REGISTRY, toolCall.tool)) {
+    throw new Error("runToolWithGate: unknown tool: " + toolCall.tool);
   }
 
-  const fn = registry.get(call.tool);
-  if (!fn) {
-    throw new Error("runTool: unknown tool: " + call.tool);
-  }
+  // Execute tool
+  const result = await TOOL_REGISTRY[toolCall.tool](toolCall.args || {});
 
-  return fn(call.args || {});
+  // Executed receipt
+  writeReceipt({
+    policyVersion: "v1",
+    decision: "allowed",
+    reason: decision.reason || "rule_passed",
+    tool: toolCall.tool,
+    args: toolCall.args ?? null,
+    outcome: "executed",
+  });
+
+  return result;
 }
 
-module.exports = {
-  ToolRegistry,
-  registry,
-  runTool,
-};
+module.exports = { runToolWithGate };
