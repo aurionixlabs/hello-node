@@ -1,0 +1,27 @@
+"use strict";
+
+class ToolRegistry {
+  constructor() {
+    this.tools = new Map();
+  }
+
+  register(def) {
+    if (!def || typeof def.name !== "string" || def.name.trim() === "") {
+      throw new Error("ToolRegistry.register: name must be a non-empty string");
+    }
+    if (typeof def.fn !== "function") {
+      throw new Error("ToolRegistry.register: fn must be a function");
+    }
+    if (this.tools.has(def.name)) {
+      throw new Error(`ToolRegistry.register: duplicate tool name: ${def.name}`);
+    }
+    this.tools.set(def.name, def.fn);
+  }
+
+  get(name) {
+    return this.tools.get(name);
+  }
+}
+
+module.exports = { ToolRegistry };
+

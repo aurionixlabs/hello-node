@@ -1,0 +1,70 @@
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const { runTool } = require("./toolRunner.cjs");
+
+runTool("filesystem.writeFile", {
+  path: "test.txt",
+  content: "hello"
+});
+
+/**
+ * Single canonical test target.
+ * ALL checks and writes use this path.
+ */
+const TARGET = path.join(__dirname, "tmp/demo.txt");
+
+/**
+ * Hard reset between cases so results are honest.
+ */
+function reset() {
+  try {
+    fs.unlinkSync(TARGET);
+  } catch {}
+}
+
+/**
+ * Helper to check existence
+ */
+function exists(label) {
+  console.log(`${label}:`, fs.existsSync(TARGET));
+}
+
+console.log("\n== CASE 1: BYPASS ATTEMPT (should fail) ==");
+reset();
+
+try {
+  // ❌ Direct import = bypass attempt
+  writeFile({ path: TARGET, data: "bypass write" });
+  console.log("❌ bypass succeeded (THIS SHOULD NOT HAPPEN)");
+} catch (e) {
+  console.log("bypass blocked:", e.message);
+}
+
+exists("exists(after bypass)");
+
+console.log("\n== CASE 2: GUARDED + REFUSE ==");
+reset();
+
+runTool({
+  toolName: "filesystem.writeFile",
+  payload: { path: TARGET, data: "should be refused" },
+  context: { force: "REFUSE" },
+});
+
+exists("exists(after refuse)");
+
+console.log("\n== CASE 3: GUARDED + DOWNGRADE (no confirm) ==");
+reset();
+
+runTool({
+  toolName: "filesystem.writeFile",
+  payload: { path: TARGET, data: "should downgrade" },
+  context: { force: "DOWNGRADE" },
+});
+
+exists("exists(after downgrade)");
+
+console.log("\n== DONE ==");
+

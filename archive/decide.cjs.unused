@@ -1,0 +1,32 @@
+// decide.cjs
+// Simple decision gate
+
+module.exports = function decide(ctx) {
+  const { action, domain, confirmed } = ctx;
+
+  if (domain === "fraud") {
+    return {
+      result: "REFUSE",
+      reason: "Fraud domain blocked",
+      rulesVersion: "v1",
+      confirmed: false,
+    };
+  }
+
+  if (domain === "payments" && action === "write" && !confirmed) {
+    return {
+      result: "DOWNGRADE",
+      reason: "Write requires confirmation",
+      rulesVersion: "v1",
+      confirmed: false,
+    };
+  }
+
+  return {
+    result: "ALLOW",
+    reason: "Allowed",
+    rulesVersion: "v1",
+    confirmed: !!confirmed,
+  };
+};
+

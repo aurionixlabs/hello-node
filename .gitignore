@@ -1,0 +1,11 @@
+# junk
+.run_count
+output/
+
+# generated receipts (keep one sample committed)
+receipts/*
+!receipts/sample.json
+
+# local env
+.env
+

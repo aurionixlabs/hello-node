@@ -1,46 +1,83 @@
+"use strict";
+
 const fs = require("fs");
 const path = require("path");
 
-const { decide } = require("./decide.cjs");
-const { issueReceipt } = require("./receipt.cjs");
+/**
+ * Tool registry
+ */
+class ToolRegistry {
+  constructor() {
+    this.tools = new Map();
+  }
 
-// --- tool implementation ---
-function fsWrite({ path: targetPath, data }) {
-  fs.writeFileSync(targetPath, data, "utf8");
-  return { ok: true };
+  register(def) {
+    if (!def || typeof def.name !== "string" || def.name.trim() === "") {
+      throw new Error("ToolRegistry.register: name must be a non-empty string");
+    }
+    if (typeof def.fn !== "function") {
+      throw new Error("ToolRegistry.register: fn must be a function");
+    }
+    if (this.tools.has(def.name)) {
+      throw new Error("ToolRegistry.register: duplicate tool name: " + def.name);
+    }
+    this.tools.set(def.name, def.fn);
+  }
+
+  get(name) {
+    return this.tools.get(name);
+  }
 }
 
-// --- guarded tool runner ---
-function runTool(req) {
-  // 1) Decision gate runs FIRST
-  const gate = decide(req);
+const registry = new ToolRegistry();
 
-  // 2) Issue receipt for every attempt (ALLOW / REFUSE / DOWNGRADE)
-  const receipt = issueReceipt(req, gate);
+/**
+ * Example filesystem tool (safe demo)
+ */
+registry.register({
+  name: "filesystem.writeFile",
+  fn: ({ path: target, content }) => {
+    const full = path.resolve(target);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, String(content ?? ""), "utf8");
+    return {
+      ok: true,
+      wrote: full,
+      bytes: Buffer.byteLength(String(content ?? ""), "utf8"),
+    };
+  },
+});
 
-  console.log("gate:", gate.decision, "-", gate.reason);
-  console.log("receipt:", receipt.receipt_hash);
-
-  // 3) Enforce decision
-  if (gate.decision === "REFUSE") {
-    return { ok: false, gate };
+/**
+ * Hardened gate-enforced runner
+ */
+function runTool(call, decision) {
+  if (!decision || typeof decision.action !== "string") {
+    throw new Error("runTool: missing decision");
   }
 
-  if (gate.decision === "DOWNGRADE") {
-    return { ok: false, gate };
+  if (decision.action !== "allowed") {
+    throw new Error(
+      "Blocked by gate: " +
+        decision.action +
+        (decision.reason ? " (" + decision.reason + ")" : "")
+    );
   }
 
-  if (gate.decision !== "ALLOW") {
-    return { ok: false, gate };
+  if (!call || typeof call.tool !== "string") {
+    throw new Error("runTool: invalid tool call");
   }
 
-  // 4) Side-effects ONLY happen here
-  if (req.toolName === "fsWrite" && req.action === "write") {
-    return fsWrite(req.payload);
+  const fn = registry.get(call.tool);
+  if (!fn) {
+    throw new Error("runTool: unknown tool: " + call.tool);
   }
 
-  throw new Error(`Unknown tool: ${req.toolName}`);
+  return fn(call.args || {});
 }
 
-module.exports = { runTool };
-
+module.exports = {
+  ToolRegistry,
+  registry,
+  runTool,
+};

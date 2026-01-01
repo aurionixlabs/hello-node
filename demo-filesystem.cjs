@@ -1,45 +1,50 @@
-/**
- * demo-filesystem.js
- * PROVES: side-effects do not happen through the guarded runner unless ALLOWed.
- */
+"use strict";
 
-const fs = require("fs");
+const { decide } = require("./decide");
 const { runTool } = require("./toolRunner.cjs");
 
-const TARGET = "./_fs_proof.txt";
+async function testUnconfirmedWrite() {
+  const toolCall = {
+    tool: "filesystem.writeFile",
+    action: "write",
+    domain: "general",
+    args: { path: "tmp/demo.txt", content: "hello" },
+    confirmed: false,
+  };
 
-function cleanup() {
-  if (fs.existsSync(TARGET)) fs.unlinkSync(TARGET);
+  const decision = decide(toolCall);
+  console.log("\nTEST 1 decision:", decision);
+
+  return runTool({ tool: toolCall.tool, args: toolCall.args }, decision);
 }
 
-console.log("\n== CASE 1: DIRECT TOOL CALL (forbidden pattern) ==");
-cleanup();
-fs.writeFileSync(TARGET, "direct write");
-console.log("exists(after direct call):", fs.existsSync(TARGET));
-cleanup();
+async function testConfirmedWrite() {
+  const toolCall = {
+    tool: "filesystem.writeFile",
+    action: "write",
+    domain: "general",
+    args: { path: "tmp/demo2.txt", content: "hello confirmed" },
+    confirmed: true,
+  };
 
-console.log("\n== CASE 2: GUARDED + REFUSE ==");
-cleanup();
-runTool({
-  toolName: "fsWrite",
-  action: "write",
-  domain: "fraud",
-  confirmed: false,
-  payload: { path: TARGET, data: "should NOT write" },
-});
-console.log("exists(after refuse):", fs.existsSync(TARGET));
-cleanup();
+  const decision = decide(toolCall);
+  console.log("\nTEST 2 decision:", decision);
 
-console.log("\n== CASE 3: GUARDED + DOWNGRADE (no confirm) ==");
-cleanup();
-runTool({
-  toolName: "fsWrite",
-  action: "write",
-  domain: "payments",
-  confirmed: false,
-  payload: { path: TARGET, data: "should NOT write" },
-});
-console.log("exists(after downgrade no confirm):", fs.existsSync(TARGET));
-cleanup();
+  return runTool({ tool: toolCall.tool, args: toolCall.args }, decision);
+}
 
-console.log("\n== DONE ==");
+(async () => {
+  try {
+    await testUnconfirmedWrite();
+    console.log("TEST 1: unexpected success (should have been blocked)");
+  } catch (e) {
+    console.log("TEST 1 blocked as expected:", String(e));
+  }
+
+  try {
+    const res = await testConfirmedWrite();
+    console.log("TEST 2 success:", res);
+  } catch (e) {
+    console.log("TEST 2 unexpected block:", String(e));
+  }
+})();

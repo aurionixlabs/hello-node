@@ -1,0 +1,20 @@
+function decide(toolCall, policy) {
+  if (!policy || policy.allowed !== true) {
+    return {
+      action: "refused",
+      reason: (policy && policy.reason) || "rule_violation",
+      scope: (policy && policy.scope) || [],
+      constraints: (policy && policy.constraints) || [],
+    };
+  }
+
+  return {
+    action: "allowed",
+    reason: (policy && policy.reason) || "rule_passed",
+    scope: (policy && policy.scope) || [],
+    constraints: (policy && policy.constraints) || [],
+  };
+}
+
+module.exports = { decide };
+

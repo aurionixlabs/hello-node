@@ -1,0 +1,46 @@
+/**
+ * demo-filesystem.js
+ * PROVES: side-effects do not happen through the guarded runner unless ALLOWed.
+ */
+
+const fs = require("fs");
+const { runTool } = require("./toolRunner.cjs");
+
+const TARGET = "./_fs_proof.txt";
+
+function cleanup() {
+  if (fs.existsSync(TARGET)) fs.unlinkSync(TARGET);
+}
+
+console.log("\n== CASE 1: DIRECT TOOL CALL (forbidden pattern) ==");
+cleanup();
+fs.writeFileSync(TARGET, "direct write");
+console.log("exists(after direct call):", fs.existsSync(TARGET));
+cleanup();
+
+console.log("\n== CASE 2: GUARDED + REFUSE ==");
+cleanup();
+runTool({
+  toolName: "
+("filesystem.WriteFile", ...)
+  action: "write",
+  domain: "fraud",
+  confirmed: false,
+  payload: { path: TARGET, data: "should NOT write" },
+});
+console.log("exists(after refuse):", fs.existsSync(TARGET));
+cleanup();
+
+console.log("\n== CASE 3: GUARDED + DOWNGRADE (no confirm) ==");
+cleanup();
+runTool({
+  toolName: "filesystem.WriteFile",
+  action: "write",
+  domain: "payments",
+  confirmed: false,
+  payload: { path: TARGET, data: "should NOT write" },
+});
+console.log("exists(after downgrade no confirm):", fs.existsSync(TARGET));
+cleanup();
+
+console.log("\n== DONE ==");
