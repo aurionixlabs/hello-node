@@ -1,5 +1,13 @@
 "use strict";
 
+// Stage 9: startup integrity gate (fail-closed)
+const { verifyIntegrity } = require("./integrity/verify.cjs");
+let __integrityPromise;
+function __ensureIntegrityOnce() {
+  if (!__integrityPromise) __integrityPromise = verifyIntegrity();
+  return __integrityPromise;
+}
+
 /**
  * Stage 7: Single syscall layer + confirmation handshake + bypass resistance.
  *
@@ -27,6 +35,7 @@ function confirmationScopeKey(toolCall) {
 }
 
 async function runToolWithGate(toolCall) {
+  await __ensureIntegrityOnce();
   const decision = decide(toolCall);
 
   // Fail-closed if decision is missing/malformed

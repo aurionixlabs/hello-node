@@ -1,0 +1,12 @@
+{
+  "version": "stage9-integrity-v1",
+  "algo": "sha256",
+  "files": {
+    "toolRunner.cjs": "c9657e831a42baad7543ba02a9888c3a691d548687b1000e349f12b08384c66d",
+    "decide.js": "ed86fc096b0bba0244cbb82f88a7704963c0b90e80a5c2236c0cea6edbc094d3",
+    "rules.js": "873ead18eddfa4090c5ff2c0520cf924dc22496869bc9cc23fb28f4a43d9b7db",
+    "receipt.cjs": "dacb152c68a82cc41388e2ac86c53bc69ee1afc6c40f4efeca43bb0b773edd3d",
+    "confirm.cjs": "7d486582cda2244a91196bf04f88f633c059773278d8f2cd5794e953c2940e2e",
+    "internal/tools.cjs": "c32f6ee02613da4a9a4e8621ee01ce2c9f09d302d6503d1836cb3e763b0110a8"
+  }
+}
