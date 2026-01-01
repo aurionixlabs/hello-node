@@ -4,6 +4,8 @@
 module.exports = {
   version: "v2",
 
+allowedTools: new Set(["filesystem.writeFile"]),
+
   // Hard-refuse any "fraud" domain outright.
   refuseDomains: new Set(["fraud"]),
 

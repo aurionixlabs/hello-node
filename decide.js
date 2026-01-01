@@ -1,33 +1,20 @@
-// decide.js
 "use strict";
 
-const rules = require("./rules.js");
-
 /**
- * toolCall shape (minimal for demo):
- * {
- *   tool: "filesystem.writeFile" | "filesystem.readFile",
- *   action: "write" | "read",
- *   domain: "fraud" | "general" | ...,
- *   args: {...},
- *   confirmed: boolean (optional)
- * }
+ * decide.js
+ * Step 3: rule evaluation + AND composition
+ *
+ * Priority: refused > degraded > allowed
+ * Returns:
+ *  { action, reason, scope, constraints }
  */
-function decide(toolCall) {
-  if (!toolCall || typeof toolCall !== "object") {
-    return {
-      action: "refused",
-      reason: "invalid_tool_call",
-      scope: [],
-      constraints: [],
-    };
-  }
 
-  const domain = toolCall.domain || "general";
-  const action = toolCall.action || "unknown";
+const rules = require("./rules");
+const { composeAND } = require("./compose");
 
-  // 1) Hard refusals
-  if (rules.refuseDomains.has(domain)) {
+function ruleRefuseDomain(input) {
+  const domain = input?.domain || null;
+  if (domain && rules.refuseDomains && rules.refuseDomains.has(domain)) {
     return {
       action: "refused",
       reason: "refuse_domain",
@@ -35,29 +22,70 @@ function decide(toolCall) {
       constraints: [],
     };
   }
+  return { action: "allowed", reason: "domain_ok", scope: [], constraints: [] };
+}
 
-  // 2) Confirmation-gated actions => downgrade if not confirmed
-  if (rules.confirmRequiredActions.has(action) && toolCall.confirmed 
-!== true) {
+function ruleAllowedTools(input) {
+  const tool = input?.tool || null;
+
+  if (rules.allowedTools && rules.allowedTools instanceof Set) {
+    if (!tool || !rules.allowedTools.has(tool)) {
+      return {
+        action: "refused",
+        reason: "unauthorized_tool",
+        scope: ["tool"],
+        constraints: [{ type: "allowed_tools", tools: Array.from(rules.allowedTools) }],
+      };
+    }
+    return {
+      action: "allowed",
+      reason: "tool_allowed",
+      scope: [],
+      constraints: [{ type: "allowed_tools", tools: Array.from(rules.allowedTools) }],
+    };
+  }
+
+  return { action: "allowed", reason: "no_tool_allowlist", scope: [], constraints: [] };
+}
+
+function ruleConfirmRequiredActions(input) {
+  const actionName = input?.action || null;
+
+  if (actionName && rules.confirmRequiredActions && rules.confirmRequiredActions.has(actionName)) {
     return {
       action: "degraded",
       reason: "confirmation_required",
       scope: ["action"],
-      constraints: [
-        {
-          type: "allowed_tools",
-          tools: rules.downgrade.readOnlyAllowedTools,
-        },
-      ],
+      constraints: [],
     };
   }
 
-  // 3) Default allow
+  return { action: "allowed", reason: "rule_passed", scope: [], constraints: [] };
+}
+
+function decide(input) {
+  if (!input || typeof input !== "object") {
+    return {
+      action: "refused",
+      reason: "invalid_input",
+      scope: ["input"],
+      constraints: [],
+    };
+  }
+
+  const results = [
+    ruleRefuseDomain(input),
+    ruleAllowedTools(input),
+    ruleConfirmRequiredActions(input),
+  ];
+
+  const out = composeAND(results);
+
   return {
-    action: "allowed",
-    reason: "rule_passed",
-    scope: [],
-    constraints: [],
+    action: out.action,
+    reason: out.reason,
+    scope: out.scope,
+    constraints: out.constraints,
   };
 }
 
